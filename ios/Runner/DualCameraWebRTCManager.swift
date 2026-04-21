@@ -2,7 +2,7 @@ import AVFoundation
 import WebRTC
 import Flutter
 
-class DualCameraWebRTCManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+class DualCameraWebRTCManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, RTCPeerConnectionDelegate {
     
     static let shared = DualCameraWebRTCManager()
     
@@ -24,6 +24,8 @@ class DualCameraWebRTCManager: NSObject, AVCaptureVideoDataOutputSampleBufferDel
     
     private let videoQueue = DispatchQueue(label: "com.driverscreen.videoQueue", qos: .userInteractive)
     
+    var methodChannel: FlutterMethodChannel?
+    
     override init() {
         RTCInitializeSSL()
         let encoderFactory = RTCDefaultVideoEncoderFactory()
@@ -40,9 +42,6 @@ class DualCameraWebRTCManager: NSObject, AVCaptureVideoDataOutputSampleBufferDel
         
         let session = AVCaptureMultiCamSession()
         session.beginConfiguration()
-        
-        // 1. Hardware Setup (AVCaptureMultiCamSession)
-        // CRITICAL: Do not force custom activeFormat resolutions, let system pick default formats
         
         // Front Camera
         if let frontDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front),
@@ -66,7 +65,6 @@ class DualCameraWebRTCManager: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                     }
                 }
                 
-                // CRITICAL: Lock configuration and set explicitly to 10 FPS
                 do {
                     try frontDevice.lockForConfiguration()
                     frontDevice.activeVideoMinFrameDuration = CMTime(value: 1, timescale: 10)
@@ -78,7 +76,7 @@ class DualCameraWebRTCManager: NSObject, AVCaptureVideoDataOutputSampleBufferDel
             }
         }
         
-        // Back Camera
+        // Back Camera (USB/Environment)
         if let backDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
            let backInput = try? AVCaptureDeviceInput(device: backDevice) {
             
@@ -100,7 +98,6 @@ class DualCameraWebRTCManager: NSObject, AVCaptureVideoDataOutputSampleBufferDel
                     }
                 }
                 
-                // CRITICAL: Lock configuration and set explicitly to 10 FPS
                 do {
                     try backDevice.lockForConfiguration()
                     backDevice.activeVideoMinFrameDuration = CMTime(value: 1, timescale: 10)
@@ -116,28 +113,28 @@ class DualCameraWebRTCManager: NSObject, AVCaptureVideoDataOutputSampleBufferDel
         session.startRunning()
         self.multiCamSession = session
         
-        // Initialize WebRTC sources
         self.frontVideoSource = peerConnectionFactory.videoSource()
         self.backVideoSource = peerConnectionFactory.videoSource()
     }
     
-    // 2. Frame Capture & Memory Management
+    func stopCameras() {
+        self.multiCamSession?.stopRunning()
+        self.multiCamSession = nil
+        for pc in peerConnections.values {
+            pc.close()
+        }
+        peerConnections.removeAll()
+    }
+    
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        // CRITICAL: Wrap the entire frame processing logic inside an autoreleasepool { ... }
-        // Prevents filling up RAM after ~2 mins and crashing
         autoreleasepool {
             guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-            
-            // Convert CMSampleBuffer to RTCCVPixelBuffer
             let rtcPixelBuffer = RTCCVPixelBuffer(pixelBuffer: pixelBuffer)
-            
-            // CRITICAL: Generate timestamps using the monotonic system clock
             let timestampNs = Int64(CACurrentMediaTime() * 1_000_000_000)
             
-            // You may need to handle rotation properly based on device orientation
+            // Fix orientation: usually 90 for portrait
             let videoFrame = RTCVideoFrame(buffer: rtcPixelBuffer, rotation: RTCVideoRotation._90, timeStampNs: timestampNs)
             
-            // Pass frame to respective WebRTC source
             if output == self.frontVideoOutput {
                 self.frontVideoSource?.capturer(self, didCapture: videoFrame)
             } else if output == self.backVideoOutput {
@@ -146,60 +143,48 @@ class DualCameraWebRTCManager: NSObject, AVCaptureVideoDataOutputSampleBufferDel
         }
     }
     
-    // 3. WebRTC Stream Routing & Transceivers
-    func createPeerConnection(connectionId: String, configuration: RTCConfiguration, delegate: RTCPeerConnectionDelegate, completion: @escaping (RTCSessionDescription?) -> Void) {
+    func createPeerConnection(connectionId: String, type: String, completion: @escaping (RTCSessionDescription?) -> Void) {
         let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil)
-        guard let peerConnection = peerConnectionFactory.peerConnection(with: configuration, constraints: constraints, delegate: delegate) else {
+        let config = RTCConfiguration()
+        config.iceServers = [RTCIceServer(urlStrings: ["stun:stun.l.google.com:19302"])]
+        config.sdpSemantics = .unifiedPlan
+        
+        // We use a custom delegate wrapper to pass connectionId
+        let delegateWrapper = PeerConnectionDelegateWrapper(connectionId: connectionId, manager: self)
+        
+        guard let peerConnection = peerConnectionFactory.peerConnection(with: config, constraints: constraints, delegate: delegateWrapper) else {
             completion(nil)
             return
         }
         
+        // Keep a reference to the wrapper by attaching it to peer connection dynamically or store it
+        // Actually, we can just use self as delegate and store a mapping of RTCPeerConnection to connectionId
+        peerConnection.delegate = self
         self.peerConnections[connectionId] = peerConnection
         
-        // CRITICAL: Unique Track IDs and Stream IDs
-        let frontTrackId = "front_track_\(connectionId)"
-        let frontStreamId = "stream_front_\(connectionId)"
-        if let source = frontVideoSource {
-            let frontTrack = peerConnectionFactory.videoTrack(with: source, trackId: frontTrackId)
+        let trackId = "\(type)_track_\(connectionId)"
+        let streamId = "stream_\(type)_\(connectionId)"
+        
+        let source = (type == "tablet_front_road") ? frontVideoSource : backVideoSource
+        
+        if let source = source {
+            let track = peerConnectionFactory.videoTrack(with: source, trackId: trackId)
             let initParams = RTCRtpTransceiverInit()
             initParams.direction = .sendOnly
-            initParams.streamIds = [frontStreamId]
+            initParams.streamIds = [streamId]
             
-            if let transceiver = peerConnection.addTransceiver(with: frontTrack, init: initParams) {
-                // 4. Bitrate Capping
+            if let transceiver = peerConnection.addTransceiver(with: track, init: initParams) {
                 let parameters = transceiver.sender.parameters
                 if let encoding = parameters.encodings.first {
-                    encoding.maxBitrateBps = NSNumber(value: 500_000) // 500 kbps
+                    encoding.maxBitrateBps = NSNumber(value: 500_000)
                 }
                 transceiver.sender.parameters = parameters
             }
         }
         
-        let backTrackId = "back_track_\(connectionId)"
-        let backStreamId = "stream_back_\(connectionId)"
-        if let source = backVideoSource {
-            let backTrack = peerConnectionFactory.videoTrack(with: source, trackId: backTrackId)
-            let initParams = RTCRtpTransceiverInit()
-            initParams.direction = .sendOnly
-            initParams.streamIds = [backStreamId]
-            
-            if let transceiver = peerConnection.addTransceiver(with: backTrack, init: initParams) {
-                // 4. Bitrate Capping
-                let parameters = transceiver.sender.parameters
-                if let encoding = parameters.encodings.first {
-                    encoding.maxBitrateBps = NSNumber(value: 500_000) // 500 kbps
-                }
-                transceiver.sender.parameters = parameters
-            }
-        }
-        
-        // 5. Signaling Race Conditions (The "Jugaad" Delay)
-        // CRITICAL: Wrap offer generation in asyncAfter
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            guard let _ = self else { return } // ensures self hasn't been deallocated
-            
+            guard let _ = self else { return }
             peerConnection.offer(for: constraints) { (sdp, error) in
-                // CRITICAL: Safely unwrap sdp to prevent fatal Runtime crashes
                 if let sdp = sdp {
                     peerConnection.setLocalDescription(sdp) { error in
                         completion(sdp)
@@ -210,11 +195,70 @@ class DualCameraWebRTCManager: NSObject, AVCaptureVideoDataOutputSampleBufferDel
             }
         }
     }
+    
+    func setRemoteDescription(connectionId: String, sdp: String, type: String) {
+        guard let pc = peerConnections[connectionId] else { return }
+        let sdpType: RTCSdpType = type == "offer" ? .offer : .answer
+        let rtcSdp = RTCSessionDescription(type: sdpType, sdp: sdp)
+        pc.setRemoteDescription(rtcSdp, completionHandler: { error in
+            if let err = error {
+                print("Set remote description error: \(err)")
+            }
+        })
+    }
+    
+    func addIceCandidate(connectionId: String, candidate: String, sdpMid: String, sdpMLineIndex: Int32) {
+        guard let pc = peerConnections[connectionId] else { return }
+        let ice = RTCIceCandidate(sdp: candidate, sdpMLineIndex: sdpMLineIndex, sdpMid: sdpMid)
+        pc.add(ice)
+    }
+    
+    // MARK: - RTCPeerConnectionDelegate
+    func peerConnection(_ peerConnection: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
+        // Find connectionId
+        guard let connectionId = peerConnections.first(where: { $0.value == peerConnection })?.key else { return }
+        
+        DispatchQueue.main.async {
+            self.methodChannel?.invokeMethod("onIceCandidate", arguments: [
+                "connectionId": connectionId,
+                "candidate": candidate.sdp,
+                "sdpMid": candidate.sdpMid,
+                "sdpMLineIndex": candidate.sdpMLineIndex
+            ])
+        }
+    }
+    
+    func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
+    func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {}
+    func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
+    func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
+    func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {}
+    func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
+    func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
+    func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {}
 }
 
-// Ensure RTCVideoCapturer implementation to suppress warnings if needed
-extension DualCameraWebRTCManager: RTCVideoCapturerDelegate {
-    func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {
-        // Implementation provided natively by passing 'self'
+class PeerConnectionDelegateWrapper: NSObject, RTCPeerConnectionDelegate {
+    let connectionId: String
+    weak var manager: DualCameraWebRTCManager?
+    init(connectionId: String, manager: DualCameraWebRTCManager) {
+        self.connectionId = connectionId
+        self.manager = manager
     }
+    // Implement requirements by forwarding to manager
+    func peerConnection(_ peerConnection: RTCPeerConnection, didGenerate candidate: RTCIceCandidate) {
+        manager?.peerConnection(peerConnection, didGenerate: candidate)
+    }
+    func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
+    func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {}
+    func peerConnection(_ peerConnection: RTCPeerConnection, didRemove stream: RTCMediaStream) {}
+    func peerConnectionShouldNegotiate(_ peerConnection: RTCPeerConnection) {}
+    func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceConnectionState) {}
+    func peerConnection(_ peerConnection: RTCPeerConnection, didChange newState: RTCIceGatheringState) {}
+    func peerConnection(_ peerConnection: RTCPeerConnection, didRemove candidates: [RTCIceCandidate]) {}
+    func peerConnection(_ peerConnection: RTCPeerConnection, didOpen dataChannel: RTCDataChannel) {}
+}
+
+extension DualCameraWebRTCManager: RTCVideoCapturerDelegate {
+    func capturer(_ capturer: RTCVideoCapturer, didCapture frame: RTCVideoFrame) {}
 }

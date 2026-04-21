@@ -1,4 +1,5 @@
 import 'package:driverscreen/src/core/utils/app_logger.dart';
+import 'package:flutter/services.dart';
 // ignore_for_file: use_build_context_synchronously, deprecated_member_use, prefer_conditional_assignment, curly_braces_in_flow_control_structures, prefer_const_constructors
 import 'dart:async';
 import 'dart:io';
@@ -14,7 +15,6 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:driverscreen/src/core/map/mappls_service.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart' hide ServiceStatus;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:battery_plus/battery_plus.dart';
@@ -27,8 +27,12 @@ class DashboardPage extends StatefulWidget {
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
+// ignore_for_file: unused_field, unused_element
 class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserver {
-  MapplsMapController? _mapController;
+  static const MethodChannel _webrtcChannel = MethodChannel('com.driverscreen/webrtc');
+  MapplsMapController? _mapController;
+
+
   int _batteryLevel = 100;
   final Battery _battery = Battery();
   StreamSubscription<BatteryState>? _batterySubscription;
@@ -43,15 +47,13 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   // WebRTC & Monitoring Channels
-  MediaStream? _frontRoadStream;
-  MediaStream? _interiorStream;
-  final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
+  bool _isNativeCameraActive = false;
   final Map<String, RTCPeerConnection> _peerConnections = {};
 
   // Dashcam Recording Component
   MediaRecorder? _roadRecorder;
   MediaRecorder? _interiorRecorder;
-  bool _isRecording = false;
+  final bool _isRecording = false;
   String? _currentRideId;
   
   // Navigation State
@@ -69,8 +71,9 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
 
   @override
   void initState() {
-    super.initState();
-    _localRenderer.initialize();
+    super.initState();
+
+
     
     _checkPermissions();
     _initBattery();
@@ -95,13 +98,13 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
         final rideId = provider.activeRide?['_id']?.toString();
         
         // Automatic Lifecycle Management: Start on Ride, Stop on End
-        if (hasRide && _frontRoadStream == null) {
+        if (hasRide && !_isNativeCameraActive) {
           AppLogger.info('🚀 [AUTO] Ride started: Activating hardware monitoring system...');
           _currentRideId = rideId;
           _initCamera().then((_) {
              _startRecording();
           });
-        } else if (!hasRide && _frontRoadStream != null) {
+        } else if (!hasRide && _isNativeCameraActive) {
            AppLogger.info('🏁 [AUTO] Ride ended: Preparing surveillance archive...');
            _stopAndUploadRecording();
            _stopSensors();
@@ -115,59 +118,11 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
   }
 
   Future<void> _startRecording() async {
-    if (_isRecording || _currentRideId == null) return;
-    try {
-      final dir = await getTemporaryDirectory();
-      
-      if (_frontRoadStream != null) {
-        _roadRecorder = MediaRecorder();
-        final path = '${dir.path}/road_${_currentRideId}_${DateTime.now().millisecondsSinceEpoch}.mp4';
-        await _roadRecorder!.start(path, videoTrack: _frontRoadStream!.getVideoTracks().first);
-      }
-      
-      if (_interiorStream != null) {
-        _interiorRecorder = MediaRecorder();
-        final path = '${dir.path}/interior_${_currentRideId}_${DateTime.now().millisecondsSinceEpoch}.mp4';
-        await _interiorRecorder!.start(path, videoTrack: _interiorStream!.getVideoTracks().first);
-      }
-
-      setState(() => _isRecording = true);
-      AppLogger.info('📹 [DASHCAM] Recording started for Dual-Cam Grid');
-    } catch (e) {
-      AppLogger.info('❌ [DASHCAM] Start error: $e');
-    }
+    AppLogger.info('📹 [DASHCAM] Native recording not implemented yet.');
   }
-
   Future<void> _stopAndUploadRecording() async {
-    if (!_isRecording || _currentRideId == null) return;
-    final rideToLink = _currentRideId;
-    
-    try {
-      String? roadPath;
-      String? interiorPath;
-
-      if (_roadRecorder != null) {
-         roadPath = await _roadRecorder!.stop();
-         _roadRecorder = null;
-      }
-      if (_interiorRecorder != null) {
-         interiorPath = await _interiorRecorder!.stop();
-         _interiorRecorder = null;
-      }
-
-      setState(() => _isRecording = false);
-      AppLogger.info('📼 [DASHCAM] Recording stopped. Initiating asynchronous upload...');
-
-      // Run upload in background to not block UI
-      if (rideToLink != null) {
-        _uploadVideo(roadPath, 'road', rideToLink);
-        _uploadVideo(interiorPath, 'interior', rideToLink);
-      }
-    } catch (e) {
-      AppLogger.info('❌ [DASHCAM] Stop error: $e');
-    }
+    AppLogger.info('📼 [DASHCAM] Native recording stopped.');
   }
-
   Future<void> _uploadVideo(String? path, String type, String rideId) async {
     if (path == null) return;
     final file = File(path);
@@ -235,19 +190,9 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
   }
 
   void _stopSensors() {
-     _frontRoadStream?.getTracks().forEach((t) => t.stop());
-     _interiorStream?.getTracks().forEach((t) => t.stop());
-     _frontRoadStream = null;
-     _interiorStream = null;
-     _localRenderer.srcObject = null;
-     // Close all admin viewers
-     for (var pc in _peerConnections.values) {
-       pc.dispose();
-     }
-     _peerConnections.clear();
-     if (mounted) setState(() {});
+    _webrtcChannel.invokeMethod('stopCameras');
+    if (mounted) setState(() { _isNativeCameraActive = false; });
   }
-
   Future<void> _initBattery() async {
     final level = await _battery.batteryLevel;
     setState(() => _batteryLevel = level);
@@ -303,10 +248,8 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
     _batterySubscription?.cancel();
     _gpsSubscription?.cancel();
     _connectivitySubscription?.cancel();
-    WidgetsBinding.instance.removeObserver(this);
-    _localRenderer.dispose();
-    _interiorStream?.getTracks().forEach((t) => t.stop());
-    _frontRoadStream?.getTracks().forEach((t) => t.stop());
+    WidgetsBinding.instance.removeObserver(this);
+
     for (var pc in _peerConnections.values) {
       pc.dispose();
     }
@@ -383,96 +326,18 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
        );
     }
     return const LatLng(0, 0);
-  }
+  }
+
 
   Future<void> _initCamera() async {
     try {
-      final devices = await navigator.mediaDevices.enumerateDevices();
-      final videoDevices = devices.where((device) => device.kind == 'videoinput').toList();
-      AppLogger.info('🔍 [HARDWARE] Total Video Devices Found: ${videoDevices.length}');
-
-      String? primaryCamId; 
-      String? secondaryCamId;  
-
-      if (videoDevices.isNotEmpty) {
-        // 1. Identify Primary (Interior/Front-facing)
-        for (var device in videoDevices) {
-           String label = device.label.toLowerCase();
-           if (label.contains('front') || label.contains('user') || label.contains('selfie')) {
-             primaryCamId = device.deviceId;
-             break;
-           } 
-        }
-        
-        // 2. Identify Secondary (USB/Road/External)
-        for (var device in videoDevices) {
-           String label = device.label.toLowerCase();
-           if (device.deviceId == primaryCamId) continue;
-           
-           if (label.contains('usb') || label.contains('external') || label.contains('uvc')) {
-              secondaryCamId = device.deviceId;
-              break;
-           }
-        }
-
-        // 3. Fallback: If still nothing assigned, use pure indices
-        primaryCamId ??= videoDevices[0].deviceId;
-        if (secondaryCamId == null && videoDevices.length > 1) {
-           // If we have a second device and it's not the primary, use it as road cam
-           for (var device in videoDevices) {
-              if (device.deviceId != primaryCamId) {
-                 secondaryCamId = device.deviceId;
-                 break;
-              }
-           }
-        }
-        
-        AppLogger.info('📹 [CAMERA] Final Setup: Primary=$primaryCamId, Secondary=$secondaryCamId');
-      }
-
-      // --- Primary Camera (Interior/Front) ---
-      if (primaryCamId != null && _frontRoadStream == null) {
-        final constraints = {
-          'audio': false,
-          'video': {
-            'deviceId': primaryCamId,
-            'facingMode': 'user',
-            'width': {'ideal': 1280},
-            'height': {'ideal': 720},
-          }
-        };
-        _frontRoadStream = await navigator.mediaDevices.getUserMedia(constraints);
-        _localRenderer.srcObject = _frontRoadStream;
-        AppLogger.info('📹 [WEBRTC] Primary Tablet Camera Active');
-      }
-
-      // --- Secondary Camera (USB/Road) ---
-      if (secondaryCamId != null && _interiorStream == null) {
-        AppLogger.info('🔌 [USB] Initializing External Webcam...');
-        final usbConstraints = {
-          'audio': false,
-          'video': {
-            'deviceId': secondaryCamId,
-            'facingMode': 'environment',
-            'width': {'ideal': 1280},
-            'height': {'ideal': 720},
-          }
-        };
-        _interiorStream = await navigator.mediaDevices.getUserMedia(usbConstraints);
-        AppLogger.info('📹 [WEBRTC] USB/Secondary Camera Active');
-      } else if (secondaryCamId == null && _interiorStream != null) {
-         // Cleanup if unplugged
-         _interiorStream?.getTracks().forEach((t) => t.stop());
-         _interiorStream = null;
-         AppLogger.info('🛑 [USB] External Webcam disconnected');
-      }
-
-      if (mounted) setState(() {});
+      await _webrtcChannel.invokeMethod('startCameras');
+      if (mounted) setState(() { _isNativeCameraActive = true; });
+      AppLogger.info('📹 [WEBRTC] Native Dual-Camera Pipeline Activated');
     } catch (e) {
-      AppLogger.info('❌ [WEBRTC] Camera Init Fail: $e');
+      AppLogger.error('❌ [WEBRTC] Native Camera Init Fail: $e');
     }
   }
-
   Future<void> _checkPermissions() async {
     final status = await [
       Permission.camera,
@@ -530,6 +395,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
   }
 
   void _setupWebRTCSignaling() {
+
     final provider = Provider.of<DriverProvider>(context, listen: false);
     final socket = provider.socket;
     if (socket == null) return;
@@ -537,155 +403,114 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
     final driverId = (provider.driver?['_id'] ?? provider.driver?['id'] ?? '').toString();
     final rideId = _extractId(provider.activeRide);
 
-    // CRITICAL: Always join the driver room for persistent monitoring (even if idle)
     socket.emit('join_room', 'driver_$driverId');
-    
-    // Also join ride room if active
     if (rideId != null) {
       socket.emit('join_room', 'ride_$rideId');
       AppLogger.info('🔔 [WEBRTC] Tablet joining ride room: ride_$rideId');
     }
-    AppLogger.info('📡 [WEBRTC] Tablet persistent room active: driver_$driverId');
 
-    // 1. Stream Request from Admin (Works even if NOT in a ride)
+    _webrtcChannel.setMethodCallHandler((call) async {
+      if (call.method == 'onIceCandidate') {
+        final args = call.arguments;
+        final parts = args['connectionId'].split('|');
+        if (parts.length != 2) return;
+        final targetSocketId = parts[0];
+        final type = parts[1];
+        
+        socket.emit('webrtc_ice_candidate', {
+          'targetSocketId': targetSocketId,
+          'target': 'admin',
+          'rideId': _extractId(Provider.of<DriverProvider>(context, listen: false).activeRide),
+          'type': type,
+          'candidate': {
+            'candidate': args['candidate'],
+            'sdpMid': args['sdpMid'],
+            'sdpMLineIndex': args['sdpMLineIndex']
+          }
+        });
+      }
+    });
+
     socket.off('request_webrtc_stream');
     socket.on('request_webrtc_stream', (data) async {
        final selfId = (provider.driver?['_id'] ?? provider.driver?['id'] ?? '').toString();
-       
-       
-       // Handle specific type or all active tablet streams
        final adminSocketId = data['adminSocketId'] ?? 'unnamed_admin';
        final requestedType = data['type'];
        
-       final typesHandle = (requestedType != null) 
-          ? [requestedType] 
-          : ['tablet_front_road', 'tablet_interior'];
+       final typesHandle = (requestedType != null) ? [requestedType] : ['tablet_front_road', 'tablet_interior'];
 
        for (final type in typesHandle) {
-          unawaited(
-            () async {
-              try {
-                // Determine which camera stream we need
-                if (type == 'tablet_front_road' && _frontRoadStream == null) await _initCamera();
-                if (type == 'tablet_interior' && _interiorStream == null) await _initCamera();
-
-                final key = '${adminSocketId}_$type';
-                if (_peerConnections.containsKey(key)) {
-                   await _peerConnections[key]?.dispose();
-                   _peerConnections.remove(key);
-                }
-
-                final activeStream = (type == 'tablet_front_road') ? _frontRoadStream : _interiorStream;
-                if (activeStream == null) return;
-
-                final pc = await _createPeerConnection(type, adminSocketId, socket);
-                _peerConnections[key] = pc;
-                
-                final offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                
-                socket.emit('webrtc_offer', {
-                   'rideId': _extractId(data['rideId']),
-                   'type': type,
-                   'sdp': offer.toMap(),
-                   'targetSocketId': adminSocketId,
-                   'driverId': selfId
-                });
-                AppLogger.info('📤 [WEBRTC] Offer Sent: $type -> $adminSocketId');
-              } catch (_) {}
-            }(),
-          );
+         try {
+           final key = '$adminSocketId|$type';
+           final result = await _webrtcChannel.invokeMethod('createOffer', {
+             'connectionId': key,
+             'type': type
+           });
+           
+           if (result != null) {
+             socket.emit('webrtc_offer', {
+               'rideId': _extractId(data['rideId']),
+               'type': type,
+               'sdp': {
+                 'sdp': result['sdp'],
+                 'type': result['type']
+               },
+               'targetSocketId': adminSocketId,
+               'driverId': selfId
+             });
+             AppLogger.info('📤 [WEBRTC] Native Offer Sent: $type -> $adminSocketId');
+           }
+         } catch (e) {
+           AppLogger.error('Failed to create offer: $e');
+         }
        }
     });
 
-    // 3. Remote Hardware Lifecycle Control (Start/Stop command from Admin)
-     socket.off('toggle_webrtc_stream');
-     socket.on('toggle_webrtc_stream', (data) async {
-        final status = data['status']; // 'on' or 'off'
-        final targetType = data['type']; // which cam
-        AppLogger.info('🔌 [REMOTE] Command: Toggle $targetType to $status');
-
-        if (status == 'on') {
-           await _initCamera(); 
-           socket.emit('request_webrtc_stream', { 
-             'driverId': driverId, 
-             'adminSocketId': data['adminSocketId'],
-             'type': targetType 
-           });
-        } else {
-           if (targetType == 'tablet_front_road') {
-              _frontRoadStream?.getTracks().forEach((t) => t.stop());
-              _frontRoadStream = null;
-           } else if (targetType == 'tablet_interior') {
-              _interiorStream?.getTracks().forEach((t) => t.stop());
-              _interiorStream = null;
-           } else {
-              _stopSensors(); 
-           }
-           if (mounted) setState(() {});
-        }
-     });
-
-     // 2. Answer from Admin
-     socket.off('webrtc_answer');
-     socket.on('webrtc_answer', (data) async {
-        final adminId = data['adminSocketId'] ?? data['senderSocketId'];
-        final type = data['type'];
-        final key = '${adminId}_$type';
-        
-        final pc = _peerConnections[key];
-        if (pc != null && data['sdp'] != null) {
-           final sdp = RTCSessionDescription(data['sdp']['sdp'], data['sdp']['type']);
-           await pc.setRemoteDescription(sdp);
-        }
-     });
-
-     // 3. ICE from Admin
-     socket.off('webrtc_ice_candidate');
-     socket.on('webrtc_ice_candidate', (data) async {
-        final adminId = data['senderSocketId'] ?? data['adminSocketId'];
-        final type = data['type'];
-        final key = '${adminId}_$type';
-        
-        final pc = _peerConnections[key];
-        if (pc != null && data['candidate'] != null) {
-           final cand = RTCIceCandidate(
-              data['candidate']['candidate'],
-              data['candidate']['sdpMid'],
-              data['candidate']['sdpMLineIndex']
-           );
-           await pc.addCandidate(cand);
-        }
-     });
-  }
-
-  Future<RTCPeerConnection> _createPeerConnection(String type, String adminId, dynamic socket) async {
-    final pc = await createPeerConnection({
-      "iceServers": [{"urls": "stun:stun.l.google.com:19302"}],
-      "sdpSemantics": "unified-plan",
+    socket.off('toggle_webrtc_stream');
+    socket.on('toggle_webrtc_stream', (data) async {
+       if (data['status'] == 'on') {
+          await _initCamera();
+          socket.emit('request_webrtc_stream', { 
+            'driverId': driverId, 
+            'adminSocketId': data['adminSocketId'],
+            'type': data['type']
+          });
+       } else {
+          _stopSensors();
+       }
     });
-    
-    pc.onIceCandidate = (cand) {
-      if (cand.candidate != null) {
-         socket.emit('webrtc_ice_candidate', {
-           'targetSocketId': adminId,
-           'target': 'admin',
-           'rideId': _extractId(Provider.of<DriverProvider>(context, listen: false).activeRide),
-           'type': type,
-           'candidate': cand.toMap(),
-         });
-      }
-    };
-    
-    final stream = type == 'tablet_interior' ? _interiorStream : _frontRoadStream;
-    if (stream != null) {
-      for (var track in stream.getVideoTracks()) {
-         pc.addTrack(track, stream);
-      }
-    }
-    return pc;
-  }
 
+    socket.off('webrtc_answer');
+    socket.on('webrtc_answer', (data) async {
+       final adminId = data['adminSocketId'] ?? data['senderSocketId'];
+       final type = data['type'];
+       final key = '$adminId|$type';
+       
+       if (data['sdp'] != null) {
+          _webrtcChannel.invokeMethod('setRemoteDescription', {
+             'connectionId': key,
+             'sdp': data['sdp']['sdp'],
+             'type': data['sdp']['type']
+          });
+       }
+    });
+
+    socket.off('webrtc_ice_candidate');
+    socket.on('webrtc_ice_candidate', (data) async {
+       final adminId = data['senderSocketId'] ?? data['adminSocketId'];
+       final type = data['type'];
+       final key = '$adminId|$type';
+       
+       if (data['candidate'] != null) {
+          _webrtcChannel.invokeMethod('addIceCandidate', {
+             'connectionId': key,
+             'candidate': data['candidate']['candidate'],
+             'sdpMid': data['candidate']['sdpMid'],
+             'sdpMLineIndex': data['candidate']['sdpMLineIndex']
+          });
+       }
+    });
+  }
   String? _extractId(dynamic data) {
     if (data == null) return null;
     if (data is String) return data;

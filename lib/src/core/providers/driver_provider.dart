@@ -1,3 +1,4 @@
+import 'package:driverscreen/src/core/utils/app_logger.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -37,7 +38,7 @@ class DriverProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final driverStr = prefs.getString('driver');
-      debugPrint('📦 [SESSION] Checking for saved driver session: ${driverStr != null ? 'DATA FOUND' : 'NO DATA'}');
+      AppLogger.info('📦 [SESSION] Checking for saved driver session: ${driverStr != null ? 'DATA FOUND' : 'NO DATA'}');
       
       if (driverStr != null) {
         _driver = jsonDecode(driverStr);
@@ -46,7 +47,7 @@ class DriverProvider extends ChangeNotifier {
         final driverId = (_driver!['_id'] ?? _driver!['id'] ?? _driver!['driverId']).toString();
         final token = (_driver!['token'] ?? _driver!['_id']).toString();
         
-        debugPrint('🔐 [SESSION] Restoring session for Driver: $driverId');
+        AppLogger.info('🔐 [SESSION] Restoring session for Driver: $driverId');
         _apiService.setToken(token);
         _socketService.connect(driverId);
         _kioskStatus = _driver!['kioskEnabled'] == true;
@@ -58,11 +59,11 @@ class DriverProvider extends ChangeNotifier {
            await syncProfile().timeout(const Duration(seconds: 10)); 
            await _restoreAppState().timeout(const Duration(seconds: 10));
         } catch(e) {
-           debugPrint('📡 [SESSION] Offline or server taking too long to wake up. Continuing with local data.');
+           AppLogger.info('📡 [SESSION] Offline or server taking too long to wake up. Continuing with local data.');
         }
       }
     } catch (e) {
-      debugPrint('❌ Persistent session error: $e');
+      AppLogger.info('❌ Persistent session error: $e');
     } finally {
       _isInitialized = true;
       notifyListeners();
@@ -79,22 +80,22 @@ class DriverProvider extends ChangeNotifier {
   void _setupSocketListeners() {
     // 🔔 REAL-TIME STATUS UPDATES
     _socketService.on('ride_status_update', (data) {
-       debugPrint('🔧 [SOCKET] Ride status updated: $data');
+       AppLogger.info('🔧 [SOCKET] Ride status updated: $data');
        _syncCurrentRide();
     });
 
     _socketService.on('ride_status', (data) {
-       debugPrint('🔧 [SOCKET] Ride status changed: $data');
+       AppLogger.info('🔧 [SOCKET] Ride status changed: $data');
        _syncCurrentRide();
     });
     
     _socketService.on('ride_accepted', (data) {
-       debugPrint('🚀 [SOCKET] Ride accepted locally or globally: $data');
+       AppLogger.info('🚀 [SOCKET] Ride accepted locally or globally: $data');
        _syncCurrentRide();
     });
 
     _socketService.on('ride_assigned', (data) {
-       debugPrint('🎯 [SOCKET] Ride assigned to us: $data');
+       AppLogger.info('🎯 [SOCKET] Ride assigned to us: $data');
        _activeRide = data['ride'] ?? data;
        _incomingRideRequest = null;
        
@@ -106,13 +107,13 @@ class DriverProvider extends ChangeNotifier {
     });
 
     _socketService.on('new_ride_request', (data) {
-       debugPrint('🔔 [SOCKET] New ride request incoming: $data');
+       AppLogger.info('🔔 [SOCKET] New ride request incoming: $data');
        _incomingRideRequest = data;
        notifyListeners();
     });
 
     _socketService.on('ride_taken', (data) {
-       debugPrint('⛔ [SOCKET] Ride taken by someone else: $data');
+       AppLogger.info('⛔ [SOCKET] Ride taken by someone else: $data');
        final takenId = (data is Map) ? data['rideId'] : data?.toString();
        if (_incomingRideRequest != null && _incomingRideRequest!['_id'] == takenId) {
           _incomingRideRequest = null;
@@ -121,14 +122,14 @@ class DriverProvider extends ChangeNotifier {
     });
 
     _socketService.on('ride_cancelled', (data) {
-       debugPrint('❌ [SOCKET] Ride cancelled: $data');
+       AppLogger.info('❌ [SOCKET] Ride cancelled: $data');
        _activeRide = null; 
        _incomingRideRequest = null;
        notifyListeners();
     });
 
     _socketService.on('connect', (_) {
-       debugPrint('🔌 [SOCKET] Reconnected. Syncing state and rooms...');
+       AppLogger.info('🔌 [SOCKET] Reconnected. Syncing state and rooms...');
        syncProfile(); // 🔥 Refresh profile on reconnection
        _restoreAppState();
        if (_activeRide != null && _activeRide!['_id'] != null) {
@@ -138,12 +139,12 @@ class DriverProvider extends ChangeNotifier {
 
     // 👤 PROFILE SYNC
      _socketService.on('profile_updated', (data) {
-        debugPrint('👤 [SOCKET] Profile updated notification received');
+        AppLogger.info('👤 [SOCKET] Profile updated notification received');
         syncProfile();
      });
 
      _socketService.on('admin_toggle_kiosk', (data) async {
-        debugPrint('🔒 [SOCKET] Admin toggled kiosk mode: $data');
+        AppLogger.info('🔒 [SOCKET] Admin toggled kiosk mode: $data');
         final enabled = data['enabled'] == true;
         _kioskStatus = enabled;
         notifyListeners();
@@ -181,7 +182,7 @@ class DriverProvider extends ChangeNotifier {
   Future<void> syncProfile() async {
     try {
       final res = await _apiService.get('drivers/me');
-      debugPrint('📡 [PROVIDER] Profile sync response: $res');
+      AppLogger.info('📡 [PROVIDER] Profile sync response: $res');
       
       if (res is Map && res['success'] == true) {
         _driver = Map<String, dynamic>.from(res['data'] ?? {});
@@ -197,7 +198,7 @@ class DriverProvider extends ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('❌ Profile sync error: $e');
+      AppLogger.info('❌ Profile sync error: $e');
     }
   }
 
@@ -212,21 +213,21 @@ class DriverProvider extends ChangeNotifier {
         }
       }
     } catch (e) {
-      debugPrint('❌ Fetch pending error: $e');
+      AppLogger.info('❌ Fetch pending error: $e');
     }
   }
 
   Future<bool> updateRideStatus(String status) async {
     if (_activeRide == null) {
-       debugPrint('⚠️ [PROVIDER] Update status failed: No active ride');
+       AppLogger.info('⚠️ [PROVIDER] Update status failed: No active ride');
        return false;
     }
     try {
       final rideId = (_activeRide!['_id'] ?? _activeRide!['id'] ?? _activeRide!['rideId']).toString();
-      debugPrint('🔄 [PROVIDER] Requesting SERVER status change for $rideId to: $status');
+      AppLogger.info('🔄 [PROVIDER] Requesting SERVER status change for $rideId to: $status');
       
       final res = await _apiService.post('rides/$rideId/status', {'status': status});
-      debugPrint('📡 [PROVIDER] Server response: $res');
+      AppLogger.info('📡 [PROVIDER] Server response: $res');
       
       if (res is Map && res['success'] == true) {
         // Sync the updated ride data back to our local state
@@ -235,17 +236,17 @@ class DriverProvider extends ChangeNotifier {
         final rId = (_activeRide!['_id'] ?? _activeRide!['id']).toString();
         _socketService.joinRideRoom(rId);
         
-        debugPrint('✅ [PROVIDER] Status update CONFIRMED by backend: $status');
+        AppLogger.info('✅ [PROVIDER] Status update CONFIRMED by backend: $status');
         notifyListeners();
         
         // Force sync just in case backend data is partial
         await _syncCurrentRide();
         return true;
       } else {
-        debugPrint('❌ [PROVIDER] Backend rejected status update: ${res['message']}');
+        AppLogger.info('❌ [PROVIDER] Backend rejected status update: ${res['message']}');
       }
     } catch (e) {
-      debugPrint('❌ [PROVIDER] Network error during status update: $e');
+      AppLogger.info('❌ [PROVIDER] Network error during status update: $e');
     }
     return false;
   }
@@ -266,7 +267,7 @@ class DriverProvider extends ChangeNotifier {
         return true;
       }
     } catch (e) {
-      debugPrint('❌ Report breakdown error: $e');
+      AppLogger.info('❌ Report breakdown error: $e');
     }
     return false;
   }
@@ -287,7 +288,7 @@ class DriverProvider extends ChangeNotifier {
         return true;
       }
     } catch (e) {
-      debugPrint('❌ Accept ride error: $e');
+      AppLogger.info('❌ Accept ride error: $e');
     }
     return false;
   }
@@ -318,7 +319,7 @@ class DriverProvider extends ChangeNotifier {
         return true;
       }
     } catch (e) {
-      debugPrint('❌ Login error in DriverProvider: $e');
+      AppLogger.info('❌ Login error in DriverProvider: $e');
     }
     return false;
   }

@@ -1,3 +1,4 @@
+import 'package:driverscreen/src/core/utils/app_logger.dart';
 // ignore_for_file: use_build_context_synchronously, deprecated_member_use, prefer_conditional_assignment, curly_braces_in_flow_control_structures, prefer_const_constructors
 import 'dart:async';
 import 'dart:io';
@@ -83,7 +84,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
       
       // 🔌 Hot-plug detection for USB cameras
       navigator.mediaDevices.ondevicechange = (event) {
-        debugPrint('🔌 [HARDWARE] Camera Change Detected. Rescanning...');
+        AppLogger.info('🔌 [HARDWARE] Camera Change Detected. Rescanning...');
         _initCamera();
       };
 
@@ -95,13 +96,13 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
         
         // Automatic Lifecycle Management: Start on Ride, Stop on End
         if (hasRide && _frontRoadStream == null) {
-          debugPrint('🚀 [AUTO] Ride started: Activating hardware monitoring system...');
+          AppLogger.info('🚀 [AUTO] Ride started: Activating hardware monitoring system...');
           _currentRideId = rideId;
           _initCamera().then((_) {
              _startRecording();
           });
         } else if (!hasRide && _frontRoadStream != null) {
-           debugPrint('🏁 [AUTO] Ride ended: Preparing surveillance archive...');
+           AppLogger.info('🏁 [AUTO] Ride ended: Preparing surveillance archive...');
            _stopAndUploadRecording();
            _stopSensors();
            _currentRideId = null;
@@ -131,9 +132,9 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
       }
 
       setState(() => _isRecording = true);
-      debugPrint('📹 [DASHCAM] Recording started for Dual-Cam Grid');
+      AppLogger.info('📹 [DASHCAM] Recording started for Dual-Cam Grid');
     } catch (e) {
-      debugPrint('❌ [DASHCAM] Start error: $e');
+      AppLogger.info('❌ [DASHCAM] Start error: $e');
     }
   }
 
@@ -155,7 +156,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
       }
 
       setState(() => _isRecording = false);
-      debugPrint('📼 [DASHCAM] Recording stopped. Initiating asynchronous upload...');
+      AppLogger.info('📼 [DASHCAM] Recording stopped. Initiating asynchronous upload...');
 
       // Run upload in background to not block UI
       if (rideToLink != null) {
@@ -163,7 +164,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
         _uploadVideo(interiorPath, 'interior', rideToLink);
       }
     } catch (e) {
-      debugPrint('❌ [DASHCAM] Stop error: $e');
+      AppLogger.info('❌ [DASHCAM] Stop error: $e');
     }
   }
 
@@ -189,7 +190,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
         'file': await dio_pkg.MultipartFile.fromFile(path, filename: '${type}_$rideId.mp4'),
       });
 
-      debugPrint('📤 [SURVEILLANCE] Archiving $type footage for ride $rideId...');
+      AppLogger.info('📤 [SURVEILLANCE] Archiving $type footage for ride $rideId...');
       
       final response = await dio.post(
         uploadUrl, 
@@ -203,7 +204,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
 
       if (response.data['success'] == true) {
         final videoUrl = response.data['data']['url'];
-        debugPrint('✅ [SURVEILLANCE] Upload successful: $videoUrl');
+        AppLogger.info('✅ [SURVEILLANCE] Upload successful: $videoUrl');
 
         // Association with Ride Document (Forensic Link)
         await dio.post(
@@ -224,12 +225,12 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
             },
           ),
         );
-        debugPrint('🔗 [SURVEILLANCE] Forensic association complete for $type view');
+        AppLogger.info('🔗 [SURVEILLANCE] Forensic association complete for $type view');
       } else {
-        debugPrint('❌ [SURVEILLANCE] Upload failed: ${response.data['message']}');
+        AppLogger.info('❌ [SURVEILLANCE] Upload failed: ${response.data['message']}');
       }
     } catch (e) {
-      debugPrint('❌ [SURVEILLANCE] Critical pipeline failure ($type): $e');
+      AppLogger.info('❌ [SURVEILLANCE] Critical pipeline failure ($type): $e');
     }
   }
 
@@ -315,7 +316,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      debugPrint('🔄 [LIFECYCLE] App Resumed. Forcing state sync...');
+      AppLogger.info('🔄 [LIFECYCLE] App Resumed. Forcing state sync...');
       final provider = context.read<DriverProvider>();
       provider.syncProfile();
     }
@@ -370,7 +371,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
         }
       }
     } catch (e) {
-      debugPrint('⚠️ [STATS] Failed to update live journey stats: $e');
+      AppLogger.info('⚠️ [STATS] Failed to update live journey stats: $e');
     }
   }
 
@@ -388,7 +389,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
     try {
       final devices = await navigator.mediaDevices.enumerateDevices();
       final videoDevices = devices.where((device) => device.kind == 'videoinput').toList();
-      debugPrint('🔍 [HARDWARE] Total Video Devices Found: ${videoDevices.length}');
+      AppLogger.info('🔍 [HARDWARE] Total Video Devices Found: ${videoDevices.length}');
 
       String? primaryCamId; 
       String? secondaryCamId;  
@@ -426,7 +427,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
            }
         }
         
-        debugPrint('📹 [CAMERA] Final Setup: Primary=$primaryCamId, Secondary=$secondaryCamId');
+        AppLogger.info('📹 [CAMERA] Final Setup: Primary=$primaryCamId, Secondary=$secondaryCamId');
       }
 
       // --- Primary Camera (Interior/Front) ---
@@ -442,12 +443,12 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
         };
         _frontRoadStream = await navigator.mediaDevices.getUserMedia(constraints);
         _localRenderer.srcObject = _frontRoadStream;
-        debugPrint('📹 [WEBRTC] Primary Tablet Camera Active');
+        AppLogger.info('📹 [WEBRTC] Primary Tablet Camera Active');
       }
 
       // --- Secondary Camera (USB/Road) ---
       if (secondaryCamId != null && _interiorStream == null) {
-        debugPrint('🔌 [USB] Initializing External Webcam...');
+        AppLogger.info('🔌 [USB] Initializing External Webcam...');
         final usbConstraints = {
           'audio': false,
           'video': {
@@ -458,17 +459,17 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
           }
         };
         _interiorStream = await navigator.mediaDevices.getUserMedia(usbConstraints);
-        debugPrint('📹 [WEBRTC] USB/Secondary Camera Active');
+        AppLogger.info('📹 [WEBRTC] USB/Secondary Camera Active');
       } else if (secondaryCamId == null && _interiorStream != null) {
          // Cleanup if unplugged
          _interiorStream?.getTracks().forEach((t) => t.stop());
          _interiorStream = null;
-         debugPrint('🛑 [USB] External Webcam disconnected');
+         AppLogger.info('🛑 [USB] External Webcam disconnected');
       }
 
       if (mounted) setState(() {});
     } catch (e) {
-      debugPrint('❌ [WEBRTC] Camera Init Fail: $e');
+      AppLogger.info('❌ [WEBRTC] Camera Init Fail: $e');
     }
   }
 
@@ -542,9 +543,9 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
     // Also join ride room if active
     if (rideId != null) {
       socket.emit('join_room', 'ride_$rideId');
-      debugPrint('🔔 [WEBRTC] Tablet joining ride room: ride_$rideId');
+      AppLogger.info('🔔 [WEBRTC] Tablet joining ride room: ride_$rideId');
     }
-    debugPrint('📡 [WEBRTC] Tablet persistent room active: driver_$driverId');
+    AppLogger.info('📡 [WEBRTC] Tablet persistent room active: driver_$driverId');
 
     // 1. Stream Request from Admin (Works even if NOT in a ride)
     socket.off('request_webrtc_stream');
@@ -590,7 +591,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
                    'targetSocketId': adminSocketId,
                    'driverId': selfId
                 });
-                debugPrint('📤 [WEBRTC] Offer Sent: $type -> $adminSocketId');
+                AppLogger.info('📤 [WEBRTC] Offer Sent: $type -> $adminSocketId');
               } catch (_) {}
             }(),
           );
@@ -602,7 +603,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
      socket.on('toggle_webrtc_stream', (data) async {
         final status = data['status']; // 'on' or 'off'
         final targetType = data['type']; // which cam
-        debugPrint('🔌 [REMOTE] Command: Toggle $targetType to $status');
+        AppLogger.info('🔌 [REMOTE] Command: Toggle $targetType to $status');
 
         if (status == 'on') {
            await _initCamera(); 

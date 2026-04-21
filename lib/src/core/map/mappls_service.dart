@@ -1,3 +1,4 @@
+import 'package:driverscreen/src/core/utils/app_logger.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:mappls_gl/mappls_gl.dart';
@@ -32,7 +33,7 @@ class MapplsService {
         return _accessToken;
       }
     } catch (e) {
-      debugPrint('Mappls OAuth error: $e');
+      AppLogger.info('Mappls OAuth error: $e');
     }
     return null;
   }
@@ -72,7 +73,7 @@ class MapplsService {
         return _parseRouteResponse(Map<String, dynamic>.from(response.data as Map), alternatives);
       }
     } catch (e) {
-      debugPrint('Mappls route error: $e');
+      AppLogger.info('Mappls route error: $e');
     }
     return null;
   }

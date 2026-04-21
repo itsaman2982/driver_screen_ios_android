@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:driverscreen/src/core/utils/app_logger.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:driverscreen/src/core/api/api_service.dart';
 
@@ -26,20 +26,20 @@ class SocketService {
     _socket!.connect();
 
     _socket!.onConnect((_) {
-      debugPrint('🚀 [SOCKET] Connected to Backend');
+      AppLogger.info('🚀 [SOCKET] Connected to Backend');
       // Join general channels
       _socket!.emit('join_room', 'driver_$driverId');
       _socket!.emit('join_room', 'drivers_global');
       _socket!.emit('join_room', 'admin_global'); // For fleet sync
     });
 
-    _socket!.onDisconnect((_) => debugPrint('🔌 [SOCKET] Disconnected'));
-    _socket!.onConnectError((err) => debugPrint('⚠️ [SOCKET] Connection Error: $err'));
+    _socket!.onDisconnect((_) => AppLogger.info('🔌 [SOCKET] Disconnected'));
+    _socket!.onConnectError((err) => AppLogger.info('⚠️ [SOCKET] Connection Error: $err'));
   }
 
   void joinRideRoom(String rideId) {
     if (_socket != null && _socket!.connected) {
-       debugPrint('📍 [SOCKET] Joining Ride Room: ride_$rideId');
+       AppLogger.info('📍 [SOCKET] Joining Ride Room: ride_$rideId');
        _socket!.emit('join_room', 'ride_$rideId');
     }
   }

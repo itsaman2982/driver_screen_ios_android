@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:driverscreen/src/core/utils/app_logger.dart';
 import 'dart:async';
 import 'package:dio/dio.dart';
 
@@ -28,7 +28,7 @@ class ApiService {
       LogInterceptor(
         requestBody: true,
         responseBody: true,
-        logPrint: (obj) => debugPrint('API: $obj'),
+        logPrint: (obj) => AppLogger.info('API: $obj'),
       ),
     );
   }

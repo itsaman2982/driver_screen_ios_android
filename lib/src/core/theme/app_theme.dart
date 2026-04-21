@@ -23,7 +23,7 @@ class AppTheme {
           displayLarge: const TextStyle(fontSize: 96, fontWeight: FontWeight.bold, letterSpacing: -2, color: primaryText),
           displayMedium: const TextStyle(fontSize: 32, fontWeight: FontWeight.w300, color: accent),
           titleLarge: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primaryText),
-          labelLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: secondaryText),
+          labelLarge: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: secondaryText),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -39,12 +39,12 @@ class AppTheme {
 
   static BoxDecoration glassBox({double blur = 10, double opacity = 1.0}) {
     return BoxDecoration(
-      color: surface.withOpacity(opacity),
+      color: surface.withValues(alpha: opacity),
       borderRadius: BorderRadius.circular(30),
       border: Border.all(color: divider),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.05),
+          color: Colors.black.withValues(alpha: 0.05),
           blurRadius: 20,
           offset: const Offset(0, 10),
         )

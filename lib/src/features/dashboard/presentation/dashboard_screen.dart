@@ -1,10 +1,9 @@
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use, prefer_conditional_assignment, curly_braces_in_flow_control_structures, prefer_const_constructors
 import 'dart:async';
-import 'dart:ui';
 import 'dart:io';
 import 'package:dio/dio.dart' as dio_pkg;
 import 'package:driverscreen/src/core/api/api_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:driverscreen/src/core/providers/driver_provider.dart';
@@ -13,7 +12,6 @@ import 'package:mappls_gl/mappls_gl.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:driverscreen/src/core/map/mappls_service.dart';
-import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart' hide ServiceStatus;
@@ -29,9 +27,7 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserver {
-  MapplsMapController? _mapController;
-  Timer? _clockTimer;
-  String _currentTime = "";
+  MapplsMapController? _mapController;
   int _batteryLevel = 100;
   final Battery _battery = Battery();
   StreamSubscription<BatteryState>? _batterySubscription;
@@ -72,9 +68,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
 
   @override
   void initState() {
-    super.initState();
-    _updateTime();
-    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) => _updateTime());
+    super.initState();
     _localRenderer.initialize();
     
     _checkPermissions();
@@ -246,7 +240,9 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
      _interiorStream = null;
      _localRenderer.srcObject = null;
      // Close all admin viewers
-     for (var pc in _peerConnections.values) pc.dispose();
+     for (var pc in _peerConnections.values) {
+       pc.dispose();
+     }
      _peerConnections.clear();
      if (mounted) setState(() {});
   }
@@ -306,12 +302,13 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
     _batterySubscription?.cancel();
     _gpsSubscription?.cancel();
     _connectivitySubscription?.cancel();
-    WidgetsBinding.instance.removeObserver(this);
-    _clockTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _localRenderer.dispose();
     _interiorStream?.getTracks().forEach((t) => t.stop());
     _frontRoadStream?.getTracks().forEach((t) => t.stop());
-    for (var pc in _peerConnections.values) pc.dispose();
+    for (var pc in _peerConnections.values) {
+      pc.dispose();
+    }
     super.dispose();
   }
 
@@ -377,13 +374,6 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
     }
   }
 
-  void _updateTime() {
-    final now = DateTime.now();
-    setState(() {
-      _currentTime = DateFormat('HH:mm').format(now);
-    });
-  }
-
   LatLng _parseLatLng(dynamic loc) {
     if (loc is Map) {
        return LatLng(
@@ -392,11 +382,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
        );
     }
     return const LatLng(0, 0);
-  }
-
-  void _startClocks() {
-    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) => _updateTime());
-  }
+  }
 
   Future<void> _initCamera() async {
     try {
@@ -429,9 +415,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
         }
 
         // 3. Fallback: If still nothing assigned, use pure indices
-        if (primaryCamId == null) {
-           primaryCamId = videoDevices[0].deviceId;
-        }
+        primaryCamId ??= videoDevices[0].deviceId;
         if (secondaryCamId == null && videoDevices.length > 1) {
            // If we have a second device and it's not the primary, use it as road cam
            for (var device in videoDevices) {
@@ -566,7 +550,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
     socket.off('request_webrtc_stream');
     socket.on('request_webrtc_stream', (data) async {
        final selfId = (provider.driver?['_id'] ?? provider.driver?['id'] ?? '').toString();
-       final reqDriverId = (data['driverId'] ?? data['id'] ?? '').toString();
+       
        
        // Handle specific type or all active tablet streams
        final adminSocketId = data['adminSocketId'] ?? 'unnamed_admin';
@@ -761,7 +745,9 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
   Future<void> _clearOverlays() async {
     if (_mapController == null) return;
     if (_routeLine != null) await _mapController!.removeLine(_routeLine!);
-    for (var l in _trafficLines) await _mapController!.removeLine(l);
+    for (var l in _trafficLines) {
+      await _mapController!.removeLine(l);
+    }
     _trafficLines.clear();
     if (_pickupSymbol != null) await _mapController!.removeSymbol(_pickupSymbol!);
     if (_dropSymbol != null) await _mapController!.removeSymbol(_dropSymbol!);
@@ -1060,7 +1046,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
             ],
           ),
           const SizedBox(height: 10),
-          Text('ESTIMATED FARE', style: TextStyle(color: AppTheme.secondaryText, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 2)),
+          const Text('ESTIMATED FARE', style: TextStyle(color: AppTheme.secondaryText, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 2)),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -1276,7 +1262,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.map_rounded, size: 120, color: AppTheme.divider),
+          const Icon(Icons.map_rounded, size: 120, color: AppTheme.divider),
           const SizedBox(height: 30),
           Text('WAITING FOR NEXT TRIP', style: GoogleFonts.outfit(fontSize: 32, fontWeight: FontWeight.bold, color: AppTheme.secondaryText, letterSpacing: 4)),
           const SizedBox(height: 10),
@@ -1295,7 +1281,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('VEHICLE STATUS: ACTIVE', style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.5)),
+              const Text('VEHICLE STATUS: ACTIVE', style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.5)),
               const SizedBox(height: 5),
               Text(ride != null ? 'TRIP TO: ${_getDropStr(ride)}' : 'SYSTEM READY', style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.primaryText)),
             ],
@@ -1333,7 +1319,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
         children: [
           Icon(icon, color: color, size: 18),
           const SizedBox(width: 10),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.secondaryText, letterSpacing: 1)),
+          Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.secondaryText, letterSpacing: 1)),
         ],
       ),
     );

@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -66,7 +65,7 @@ class _LoginPageState extends State<LoginPage> {
                 borderRadius: BorderRadius.circular(40),
                 border: Border.all(color: AppTheme.divider),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 40, offset: const Offset(0, 10))
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 40, offset: const Offset(0, 10))
                 ],
               ),
               child: Column(
@@ -95,7 +94,7 @@ class _LoginPageState extends State<LoginPage> {
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                         elevation: 10,
-                        shadowColor: AppTheme.accent.withOpacity(0.4),
+                        shadowColor: AppTheme.accent.withValues(alpha: 0.4),
                         textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, letterSpacing: 1.5)
                       ),
                       child: _loading 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:dio/dio.dart';
 
@@ -27,7 +28,7 @@ class ApiService {
       LogInterceptor(
         requestBody: true,
         responseBody: true,
-        logPrint: (obj) => print('API: $obj'),
+        logPrint: (obj) => debugPrint('API: $obj'),
       ),
     );
   }
@@ -44,7 +45,7 @@ class ApiService {
     try {
       final response = await _dio.get(endpoint);
       return response.data;
-    } on DioException catch (e) {
+    } on DioException {
       rethrow;
     }
   }
@@ -53,7 +54,7 @@ class ApiService {
     try {
       final response = await _dio.post(endpoint, data: data);
       return response.data;
-    } on DioException catch (e) {
+    } on DioException {
       rethrow;
     }
   }
@@ -62,7 +63,7 @@ class ApiService {
     try {
       final response = await _dio.put(endpoint, data: data);
       return response.data;
-    } on DioException catch (e) {
+    } on DioException {
       rethrow;
     }
   }

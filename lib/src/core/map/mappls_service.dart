@@ -32,7 +32,7 @@ class MapplsService {
         return _accessToken;
       }
     } catch (e) {
-      print('Mappls OAuth error: $e');
+      debugPrint('Mappls OAuth error: $e');
     }
     return null;
   }
@@ -72,7 +72,7 @@ class MapplsService {
         return _parseRouteResponse(Map<String, dynamic>.from(response.data as Map), alternatives);
       }
     } catch (e) {
-      print('Mappls route error: $e');
+      debugPrint('Mappls route error: $e');
     }
     return null;
   }
@@ -98,8 +98,11 @@ class MapplsService {
         for (var i = 0; i < points.length - 1 && i < speeds.length; i++) {
           final speed = (speeds[i] as num).toDouble();
           var color = Colors.blue;
-          if (speed < 15) color = Colors.red;
-          else if (speed < 25) color = Colors.orange;
+          if (speed < 15) {
+            color = Colors.red;
+          } else if (speed < 25) {
+            color = Colors.orange;
+          }
           trafficSegments.add({'points': [points[i], points[i + 1]], 'color': color});
         }
       }

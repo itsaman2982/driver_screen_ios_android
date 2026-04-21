@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class KioskService {
@@ -5,7 +6,7 @@ class KioskService {
 
   static Future<void> setEnabled(bool enabled) async {
     try {
-      print('🔒 [KIOSK] Triggering TRUE Android Screen Pinning: ${enabled ? 'LOCKED' : 'UNLOCKED'}');
+      debugPrint('🔒 [KIOSK] Triggering TRUE Android Screen Pinning: ${enabled ? 'LOCKED' : 'UNLOCKED'}');
       
       if (enabled) {
         // Visual Cleanup: Hide status and navigation bars
@@ -21,7 +22,7 @@ class KioskService {
         await _channel.invokeMethod('stopKioskMode');
       }
     } catch (e) {
-      print('❌ [KIOSK] Hardware Level Error: $e');
+      debugPrint('❌ [KIOSK] Hardware Level Error: $e');
     }
   }
 

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="kiosk_label">Fleet Dashboard Kiosk</string>
+    <string name="kiosk_desc">Enterprise root hardware lockdown for fleet operators.</string>
+</resources>

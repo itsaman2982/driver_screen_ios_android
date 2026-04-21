@@ -1,0 +1,43 @@
+name: driverscreen
+description: "A modern driver screen application for car dashboards."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  google_fonts: ^6.1.0
+  provider: ^6.1.1
+  mappls_gl: ^1.2.1
+  geolocator: ^10.1.0
+  intl: ^0.19.0
+  responsive_framework: ^1.1.1
+  flutter_hooks: ^0.20.5
+  hooks_riverpod: ^2.4.9
+  go_router: ^12.1.3
+  cached_network_image: ^3.3.1
+  flutter_animate: ^4.2.0
+  dio: ^5.4.0
+  socket_io_client: ^2.0.3
+  shared_preferences: ^2.2.2
+  dio_cookie_manager: ^3.1.1
+  cookie_jar: ^4.0.8
+  path_provider: ^2.1.2
+  wakelock_plus: ^1.2.1
+  flutter_webrtc: ^1.3.1
+  permission_handler: ^12.0.1
+  battery_plus: ^7.0.0
+  connectivity_plus: ^7.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/

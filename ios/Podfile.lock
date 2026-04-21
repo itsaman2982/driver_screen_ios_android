@@ -1,0 +1,113 @@
+PODS:
+  - battery_plus (1.0.0):
+    - Flutter
+  - connectivity_plus (0.0.1):
+    - Flutter
+  - Flutter (1.0.0)
+  - flutter_webrtc (1.4.0):
+    - Flutter
+    - WebRTC-SDK (= 144.7559.01)
+  - geolocator_apple (1.2.0):
+    - Flutter
+    - FlutterMacOS
+  - mappls_gl (1.2.0):
+    - Flutter
+    - MapplsAnnotationExtension/Base (= 1.0.2)
+    - MapplsAPICore (= 1.0.16)
+    - MapplsAPIKit/Base (= 2.0.32)
+    - MapplsLMS/Base (= 1.0.6)
+    - MapplsMap/Base (= 5.13.16)
+  - MapplsAnnotationExtension/Base (1.0.2)
+  - MapplsAPICore (1.0.16)
+  - MapplsAPIKit/Base (2.0.32)
+  - MapplsLMS/Base (1.0.6)
+  - MapplsMap/Base (5.13.16)
+  - package_info_plus (0.4.5):
+    - Flutter
+  - path_provider_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - permission_handler_apple (9.3.0):
+    - Flutter
+  - shared_preferences_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - sqflite_darwin (0.0.4):
+    - Flutter
+    - FlutterMacOS
+  - wakelock_plus (0.0.1):
+    - Flutter
+  - WebRTC-SDK (144.7559.01)
+
+DEPENDENCIES:
+  - battery_plus (from `.symlinks/plugins/battery_plus/ios`)
+  - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
+  - Flutter (from `Flutter`)
+  - flutter_webrtc (from `.symlinks/plugins/flutter_webrtc/ios`)
+  - geolocator_apple (from `.symlinks/plugins/geolocator_apple/darwin`)
+  - mappls_gl (from `.symlinks/plugins/mappls_gl/ios`)
+  - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
+  - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
+  - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
+  - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
+  - wakelock_plus (from `.symlinks/plugins/wakelock_plus/ios`)
+
+SPEC REPOS:
+  trunk:
+    - MapplsAnnotationExtension
+    - MapplsAPICore
+    - MapplsAPIKit
+    - MapplsLMS
+    - MapplsMap
+    - WebRTC-SDK
+
+EXTERNAL SOURCES:
+  battery_plus:
+    :path: ".symlinks/plugins/battery_plus/ios"
+  connectivity_plus:
+    :path: ".symlinks/plugins/connectivity_plus/ios"
+  Flutter:
+    :path: Flutter
+  flutter_webrtc:
+    :path: ".symlinks/plugins/flutter_webrtc/ios"
+  geolocator_apple:
+    :path: ".symlinks/plugins/geolocator_apple/darwin"
+  mappls_gl:
+    :path: ".symlinks/plugins/mappls_gl/ios"
+  package_info_plus:
+    :path: ".symlinks/plugins/package_info_plus/ios"
+  path_provider_foundation:
+    :path: ".symlinks/plugins/path_provider_foundation/darwin"
+  permission_handler_apple:
+    :path: ".symlinks/plugins/permission_handler_apple/ios"
+  shared_preferences_foundation:
+    :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
+  sqflite_darwin:
+    :path: ".symlinks/plugins/sqflite_darwin/darwin"
+  wakelock_plus:
+    :path: ".symlinks/plugins/wakelock_plus/ios"
+
+SPEC CHECKSUMS:
+  battery_plus: b42253f6d2dde71712f8c36fef456d99121c5977
+  connectivity_plus: cb623214f4e1f6ef8fe7403d580fdad517d2f7dd
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  flutter_webrtc: ec91d94b484ad49cf191ef93413f64a40ffd3b4c
+  geolocator_apple: ab36aa0e8b7d7a2d7639b3b4e48308394e8cef5e
+  mappls_gl: 52de2c83689d5d495e6a955462fee20919cc448e
+  MapplsAnnotationExtension: 2e63c96e540cc3b2f383c2b8ab1d4839a82ed350
+  MapplsAPICore: 922af98586ffbddb054822b302804f77f662fca5
+  MapplsAPIKit: 71385b8f702727239f72c63ed29958e542957676
+  MapplsLMS: e74a9047ae1c5a977f61eaaa42ae89a57c499e57
+  MapplsMap: ed09c505e87ba92602ec408ccae222bba68929ad
+  package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
+  path_provider_foundation: bb55f6dbba17d0dccd6737fe6f7f34fbd0376880
+  permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
+  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+  sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
+  wakelock_plus: e29112ab3ef0b318e58cfa5c32326458be66b556
+  WebRTC-SDK: ab9b5319e458c2bfebdc92b3600740da35d5630d
+
+PODFILE CHECKSUM: 3bd43fb13f94e97f59e7d02e99316aac6907f354
+
+COCOAPODS: 1.16.2
